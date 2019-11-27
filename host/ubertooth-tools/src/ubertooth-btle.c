@@ -51,6 +51,18 @@ void print_mac(uint8_t *mac_address, int mask) {
 		printf("/%u", mask);
 }
 
+int convert_payload(char *s, uint8_t *o) {
+	// sanity: checked; convert
+    int i;
+	for (i = 0; i < 21; ++i) {
+		unsigned byte;
+		sscanf(&s[i*2], "%02x", &byte);
+		o[i] = byte;
+	}
+
+	return 1;
+}
+
 int convert_mac_address(char *s, uint8_t *o, uint8_t *mask_out) {
 	int i;
 	char *mask_p;
@@ -117,6 +129,7 @@ static void usage(void)
 	printf("\n");
 	printf("\t-a[address] get/set access address (example: -a8e89bed6)\n");
 	printf("\t-s<address> faux slave mode, using MAC addr (example: -s22:44:66:88:aa:cc)\n");
+	printf("\t-d<payload> faux slave mode, using payload (example: -dffffffff)\n");
 	printf("\t-t<address> set connection following target (example: -t22:44:66:88:aa:cc/48)\n");
 	printf("\t-tnone unset connection following target\n");
 	printf("\n");
@@ -158,6 +171,7 @@ int main(int argc, char *argv[])
 	u32 access_address;
 	uint8_t mac_address[6] = { 0, };
 	uint8_t mac_mask = 0;
+	uint8_t advertise_payload[21] = { 0, };
 
 	do_follow = do_no_follow = do_promisc = 0;
 	do_get_aa = do_set_aa = 0;
@@ -165,7 +179,7 @@ int main(int argc, char *argv[])
 	do_adv_index = 37;
 	do_slave_mode = do_target = 0;
 
-	while ((opt=getopt(argc,argv,"a::r:hfnpU:v::A:s:t:x:c:q:jJiI")) != EOF) {
+	while ((opt=getopt(argc,argv,"a::r:hfnpU:v::A:s:t:x:c:q:jJiId:")) != EOF) {
 		switch(opt) {
 		case 'a':
 			if (optarg == NULL) {
@@ -234,6 +248,13 @@ int main(int argc, char *argv[])
 		case 's':
 			do_slave_mode = 1;
 			r = convert_mac_address(optarg, mac_address, &mac_mask);
+			if (!r) {
+				usage();
+				return 1;
+			}
+			break;
+		case 'd':
+			r = convert_payload(optarg, advertise_payload);
 			if (!r) {
 				usage();
 				return 1;
@@ -388,8 +409,8 @@ int main(int argc, char *argv[])
 		cmd_set_channel(ut->devh, channel);
 
 		// flags: LE Limited Discovery
-		uint8_t adv_data[] = { 0x02, 0x01, 0x05 };
-		cmd_le_set_adv_data(ut->devh, adv_data, sizeof(adv_data));
+		/* uint8_t adv_data[] = { 0x02, 0x01, 0x05 }; */
+		cmd_le_set_adv_data(ut->devh, advertise_payload, sizeof(advertise_payload));
 
 		cmd_btle_slave(ut->devh, mac_address);
 	}
